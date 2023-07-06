@@ -14,7 +14,7 @@ from webscrapy.items import WebscrapyItem
 
 class SpiderSpider(scrapy.Spider):
     name = "spider"
-    allowed_domains = ["www.diy.com", "api.bazaarvoice.com"]
+    allowed_domains = ["www.bol.com", "api.bazaarvoice.com"]
     headers = {}  #
 
     def start_requests(self):
@@ -26,7 +26,7 @@ class SpiderSpider(scrapy.Spider):
         # from search words to generate product_urls
         for keyword in keywords:
             push_key = {'keyword': keyword}
-            search_url = f'https://www.diy.com/search?term={keyword}'
+            search_url = f'https://www.bol.com/nl/nl/s/?searchtext={keyword}'
 
             yield Request(
                 url=search_url,
@@ -36,92 +36,95 @@ class SpiderSpider(scrapy.Spider):
 
     def parse(self, response, **kwargs):
         # Extract the pages of product_urls
-        page = response.xpath('//*[@id="content"]//main//p[@data-test-id="search-options-total-results"]/text()')[0].extract()
+        page = response.xpath('//*[@id="js_list_view"]//p[@class="total-results js_total_results"]/text()')[0].extract()
 
         # Remove any non-digit characters from the string
         number_string = ''.join(filter(str.isdigit, page))
 
         # Convert the extracted string into an integer
         page_number = int(number_string)
-
         pages = (page_number // 24) + 1
 
         # Based on pages to build product_urls
         keyword = kwargs['keyword']
-        product_urls = [f'https://www.diy.com/search?page={page}&term={keyword}' for page
-                        in range(1, 2)]
+        product_urls = [f'https://www.bol.com/nl/nl/s/?page={page}&searchtext={keyword}&view=list' for page
+                        in range(1, 2)]  # pages + 1
 
         for product_url in product_urls:
             yield Request(url=product_url, callback=self.product_parse)
 
     def product_parse(self, response: Request, **kwargs):
-
-        product_list = response.xpath('//*[@id="content"]//main//ul/li')
+        product_list = response.xpath('//*[@id="js_items_content"]/li')
 
         for product in product_list:
-            product_href = product.xpath('.//div[@data-test-id="product-panel"]/a/@href')[0].extract()
-            product_detailed_url = f'https://www.diy.com{product_href}'
-            yield Request(url=product_detailed_url, callback=self.product_detailed_parse)
+            product_href = product.xpath('.//wsp-analytics-tracking-event/a[@data-test="product-title"]/@href')[0].extract()
+            product_detailed_url = f'https://www.bol.com{product_href}'
+            product_id = product.xpath('./@data-id')[0].extract()
+            yield Request(url=product_detailed_url, callback=self.product_detailed_parse, meta={'product_id': product_id})
 
     def product_detailed_parse(self, response, **kwargs):
+        # Product_id
+        product_id = response.meta['product_id']
 
-        product_id = response.xpath('.//*[@id="product-details"]//td[@data-test-id="product-ean-spec"]/text()')[
-            0].extract()
+        # Total reviews number
+        total_reviews = response.xpath('//div[@class="reviews-summary-flex"]/div[@data-test="total-reviews"]/text()').extract()
+        if total_reviews:
+            total_number = re.search(r'\d+', total_reviews[0]).group()
+        else:
+            total_number = None
+        # Product_name
+        product_name = response.xpath('//*[@id="product_title"]/h1/span[@data-test="title"]/text()')[0].extract()
 
         # Product reviews url
-        product_detailed_href = f'https://api.bazaarvoice.com/data/reviews.json?resource=reviews&action' \
-                                f'=REVIEWS_N_STATS&filter=productid%3Aeq%3A{product_id}&filter=contentlocale%3Aeq%3Aen_FR%2Cfr_FR' \
-                                f'%2Cen_US%2Cen_GB%2Cen_GB&filter=isratingsonly%3Aeq%3Afalse&filter_reviews' \
-                                f'=contentlocale%3Aeq%3Aen_FR%2Cfr_FR%2Cen_US%2Cen_GB%2Cen_GB&include=authors' \
-                                f'%2Cproducts&filteredstats=reviews&Stats=Reviews&limit=8&offset=0&sort' \
-                                f'=submissiontime%3Adesc&passkey=7db2nllxwguwj2eu7fxvvgm0t&apiversion=5.5&displaycode' \
-                                f'=2191-en_gb '
-
-        if product_detailed_href:
-            yield Request(url=product_detailed_href, callback=self.review_parse)
+        if total_number:
+            customer_review_url = f'https://www.bol.com/nl/rnwy/productPage/reviews?productId={product_id}&offset=0&limit={total_number}&loadMore=true'
+            yield Request(url=customer_review_url, callback=self.review_parse, meta={'product_name': product_name})
 
     def review_parse(self, response: Request, **kwargs):
+        product_name = response.meta['product_name']
+        review_list = response.xpath('//li[@class="review js-review"]')
+        print(len(review_list))
 
-        datas = json.loads(response.body)
-        batch_results = datas.get('Results', {})
+        for review in review_list:
+            item = WebscrapyItem()
 
-        offset_number = 0
-        limit_number = 0
-        total_number = 0
+            item['review_id'] = review.xpath('./@id')[0].extract()
+            item['product_name'] = product_name
+            item['customer_name'] = review.xpath('.//li[@data-test="review-author-name"]/text()')[0].extract()
+            item['customer_rating'] = review.xpath('.//div[@class="star-rating"]/@aria-label')[0].extract()
+            item['customer_date'] = review.xpath('.//li[@data-test="review-author-date"]/text()')[0].extract()
+            item['customer_review'] = review.xpath('.//p[@data-test="review-body"]/text()')[0].extract()
+            item['customer_support'] = review.xpath('.//div[@data-test="review-feedback-positive"]/text()')[0].extract()
+            item['customer_disagree'] = review.xpath('.//div[@data-test="review-feedback-negative"]/text()')[0].extract()
+
+            yield item
+
+        # datas = json.loads(response.body)
+        # batch_results = datas.get('Results', {})
+        #
+        # offset_number = 0
+        # limit_number = 0
+        # total_number = 0
 
         # if "q1" in batch_results:
         #     result_key = "q1"
         # else:
         #     result_key = "q0"
-
-        offset_number = datas.get('Offset', 0)
-        limit_number = datas.get('Limit', 0)
-        total_number = datas.get('TotalResults', 0)
-
-        print('offset_number, limit_number, total_number')
-        print(offset_number, limit_number, total_number)
-
-        for i in range(limit_number):
-            item = WebscrapyItem()
-            # results = batch_results.get(result_key, {}).get('Results', [])
-
-            try:
-                item['review_id'] = batch_results[i].get('Id', 'N/A')
-                item['product_name'] = batch_results[i].get('ProductId', 'N/A')
-                item['customer_name'] = batch_results[i].get('UserNickname', 'Anonymous')
-                item['customer_rating'] = batch_results[i].get('Rating', 'N/A')
-                item['customer_date'] = batch_results[i].get('SubmissionTime', 'N/A')
-                item['customer_review'] = batch_results[i].get('ReviewText', 'N/A')
-                item['customer_support'] = batch_results[i].get('TotalPositiveFeedbackCount', 'N/A')
-                item['customer_disagree'] = batch_results[i].get('TotalNegativeFeedbackCount', 'N/A')
-
-                yield item
-            except Exception as e:
-                print('Exception:', e)
-                break
-
-        if (offset_number + limit_number) < total_number:
-            offset_number += limit_number
-            next_page = re.sub(r'limit=\d+&offset=\d+', f'limit={30}&offset={offset_number}', response.url)
-            yield Request(url=next_page, callback=self.review_parse)
+        #
+        # offset_number = datas.get('Offset', 0)
+        # limit_number = datas.get('Limit', 0)
+        # total_number = datas.get('TotalResults', 0)
+        #
+        # print('offset_number, limit_number, total_number')
+        # print(offset_number, limit_number, total_number)
+        #
+        #
+        #     except Exception as e:
+        #         print('Exception:', e)
+        #         break
+        #
+        # if (offset_number + limit_number) < total_number:
+        #     offset_number += limit_number
+        #     next_page = re.sub(r'limit=\d+&offset=\d+', f'limit={30}&offset={offset_number}', response.url)
+        #     yield Request(url=next_page, callback=self.review_parse)
 
