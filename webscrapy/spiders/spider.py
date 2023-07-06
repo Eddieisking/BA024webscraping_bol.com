@@ -48,7 +48,7 @@ class SpiderSpider(scrapy.Spider):
         # Based on pages to build product_urls
         keyword = kwargs['keyword']
         product_urls = [f'https://www.bol.com/nl/nl/s/?page={page}&searchtext={keyword}&view=list' for page
-                        in range(1, 2)]  # pages + 1
+                        in range(1, pages + 1)]  # pages + 1
 
         for product_url in product_urls:
             yield Request(url=product_url, callback=self.product_parse)
@@ -83,7 +83,6 @@ class SpiderSpider(scrapy.Spider):
     def review_parse(self, response: Request, **kwargs):
         product_name = response.meta['product_name']
         review_list = response.xpath('//li[@class="review js-review"]')
-        print(len(review_list))
 
         for review in review_list:
             item = WebscrapyItem()
@@ -99,32 +98,5 @@ class SpiderSpider(scrapy.Spider):
 
             yield item
 
-        # datas = json.loads(response.body)
-        # batch_results = datas.get('Results', {})
-        #
-        # offset_number = 0
-        # limit_number = 0
-        # total_number = 0
 
-        # if "q1" in batch_results:
-        #     result_key = "q1"
-        # else:
-        #     result_key = "q0"
-        #
-        # offset_number = datas.get('Offset', 0)
-        # limit_number = datas.get('Limit', 0)
-        # total_number = datas.get('TotalResults', 0)
-        #
-        # print('offset_number, limit_number, total_number')
-        # print(offset_number, limit_number, total_number)
-        #
-        #
-        #     except Exception as e:
-        #         print('Exception:', e)
-        #         break
-        #
-        # if (offset_number + limit_number) < total_number:
-        #     offset_number += limit_number
-        #     next_page = re.sub(r'limit=\d+&offset=\d+', f'limit={30}&offset={offset_number}', response.url)
-        #     yield Request(url=next_page, callback=self.review_parse)
 
