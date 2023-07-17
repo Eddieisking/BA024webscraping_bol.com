@@ -18,13 +18,12 @@ class SpiderSpider(scrapy.Spider):
     headers = {}  #
 
     def start_requests(self):
-        # keywords = ['DeWalt', 'Black+and+Decker', 'Stanley', 'Craftsman', 'Porter-Cable', 'Bostitch', 'Irwin+Tools',
-        #             'Lenox']
+        # keywords = ['Stanley', 'Black+Decker', 'Craftsman', 'Porter-Cable', 'Bostitch', 'Facom', 'MAC Tools', 'Vidmar', 'Lista', 'Irwin Tools', 'Lenox', 'Proto', 'CribMaster', 'Powers Fasteners', 'cub-cadet', 'hustler', 'troy-bilt', 'rover', 'BigDog Mower', 'MTD']
         # company = 'Stanley Black and Decker'
+        exist_keywords = ['dewalt', 'Stanley', 'Black+Decker', 'Bostitch', 'Facom', 'Powers Fasteners', 'cub-cadet']
 
-        keywords = ['dewalt']
         # from search words to generate product_urls
-        for keyword in keywords:
+        for keyword in exist_keywords:
             push_key = {'keyword': keyword}
             search_url = f'https://www.bol.com/nl/nl/s/?searchtext={keyword}'
 

@@ -139,8 +139,8 @@ class DatabasePipeline:
         customer_disagree = item.get('customer_disagree', '')
 
         # Translate language into english
-        product_name_en = translator(item.get('product_name', ''), src='nl')
-        customer_review_en = translator(item.get('customer_review', ''), src='nl')
+        product_name_en = translator(product_name, src='nl')
+        customer_review_en = translator(customer_review, src='nl')
 
         self.data.append((review_id, product_name, customer_name, customer_rating, customer_date, customer_review, customer_support, customer_disagree, product_name_en, customer_review_en))
 
