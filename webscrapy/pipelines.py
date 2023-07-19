@@ -104,12 +104,10 @@ class DatabasePipeline:
     def __init__(self):
         self.conn = pymysql.connect(user="fqmm26", password="boston27", host="myeusql.dur.ac.uk", database="Pfqmm26_BA024")
         self.cursor = self.conn.cursor()
-        self.data = []
 
     def close_spider(self, spider):
-        if len(self.data) > 0:
-            self.sql_write()
-        # self.cursor.close()
+        self.conn.commit()
+        self.cursor.close()
         self.conn.close()
 
     def process_item(self, item, spider):
@@ -142,20 +140,19 @@ class DatabasePipeline:
         product_name_en = translator(product_name, src='nl')
         customer_review_en = translator(customer_review, src='nl')
 
-        self.data.append((review_id, product_name, customer_name, customer_rating, customer_date, customer_review, customer_support, customer_disagree, product_name_en, customer_review_en))
-
-        if len(self.data) == 10:
-            self.sql_write()
-            self.data.clear()
+        try:
+            self.cursor.execute(
+                "INSERT INTO bol_nl (review_id, product_name, customer_name, customer_rating, customer_date, "
+                "customer_review, customer_support, customer_disagree, product_name_en, customer_review_en) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (review_id, product_name, customer_name, customer_rating, customer_date, customer_review,
+                 customer_support, customer_disagree, product_name_en, customer_review_en)
+            )
+            self.conn.commit()
+        except Error as e:
+            print(f"Error inserting item into database: {e}")
 
         return item
-
-    def sql_write(self):
-        self.cursor.executemany(
-            "insert into bol_nl (review_id, product_name, customer_name, customer_rating, customer_date, customer_review, customer_support, customer_disagree, product_name_en, customer_review_en) values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            self.data
-        )
-        self.conn.commit()
 
     def reconnect(self):
         try:

@@ -47,7 +47,7 @@ class SpiderSpider(scrapy.Spider):
         # Based on pages to build product_urls
         keyword = kwargs['keyword']
         product_urls = [f'https://www.bol.com/nl/nl/s/?page={page}&searchtext={keyword}&view=list' for page
-                        in range(1, 2)]  # pages + 1
+                        in range(1, pages + 1)]  # pages + 1
 
         for product_url in product_urls:
             yield Request(url=product_url, callback=self.product_parse)
