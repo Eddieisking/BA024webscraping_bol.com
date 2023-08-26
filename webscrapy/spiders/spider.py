@@ -15,13 +15,12 @@ from webscrapy.items import WebscrapyItem
 class SpiderSpider(scrapy.Spider):
     name = "spider"
     allowed_domains = ["www.bol.com", "api.bazaarvoice.com"]
-    headers = {}  #
+    headers = {} 
 
     def start_requests(self):
         # keywords = ['Stanley', 'Black+Decker', 'Craftsman', 'Porter-Cable', 'Bostitch', 'Facom', 'MAC Tools', 'Vidmar', 'Lista', 'Irwin Tools', 'Lenox', 'Proto', 'CribMaster', 'Powers Fasteners', 'cub-cadet', 'hustler', 'troy-bilt', 'rover', 'BigDog Mower', 'MTD']
         # company = 'Stanley Black and Decker'
         exist_keywords = ['dewalt', 'Stanley', 'Black+Decker', 'Bostitch', 'Facom', 'Powers Fasteners', 'cub-cadet']
-        # exist_keywords = ['dewalt']
 
         # from search words to generate product_urls
         for keyword in exist_keywords:
@@ -48,8 +47,8 @@ class SpiderSpider(scrapy.Spider):
         # Based on pages to build product_urls
         keyword = kwargs['keyword']
         product_urls = [f'https://www.bol.com/nl/nl/s/?page={page}&searchtext={keyword}&view=list' for page
-                        in range(1, pages + 1)]  # pages + 1     **************************************************
-
+                        in range(1, pages + 1)]  # pages + 1 
+        
         for product_url in product_urls:
             yield Request(url=product_url, callback=self.product_parse, meta={'product_brand': keyword})
 
@@ -67,7 +66,6 @@ class SpiderSpider(scrapy.Spider):
         # Product_id
         product_id = response.meta['product_id']
         product_brand = response.meta['product_brand']
-
         product_detail = response.xpath('//div[@class="js_specifications_content js_show-more-content"]//div[@class="specs"]//div[@class="specs__row"]')
         product_model = 'N/A'
         product_type = 'N/A'
@@ -77,11 +75,9 @@ class SpiderSpider(scrapy.Spider):
             value = product.xpath('./dd[@class="specs__value"]/text()').extract_first()
             if not value:
                 value = product.xpath('./dd[@class="specs__value"]/a/text()').extract_first()
-
             # If needed, strip the whitespace from the value
             if value:
                 value = value.strip()
-
             if attr == "Type boormachine hulpstuk":
                 product_type = value if value else 'N/A'
             elif attr == 'MPN (Manufacturer Part Number)':
@@ -93,6 +89,7 @@ class SpiderSpider(scrapy.Spider):
             total_number = re.search(r'\d+', total_reviews[0]).group()
         else:
             total_number = None
+            
         # Product_name
         product_name = response.xpath('//*[@id="product_title"]/h1/span[@data-test="title"]/text()')[0].extract()
 
@@ -106,12 +103,10 @@ class SpiderSpider(scrapy.Spider):
         product_brand = response.meta['product_brand']
         product_model = response.meta['product_model']
         product_type = response.meta['product_type']
-
         review_list = response.xpath('//li[@class="review js-review"]')
 
         for review in review_list:
             item = WebscrapyItem()
-
             item['review_id'] = review.xpath('./@id')[0].extract()
             item['product_website'] = 'bol_nl'
             item['product_type'] = product_type
